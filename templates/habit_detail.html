@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>习惯详情</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <button class="btn-back" onclick="location.href='/'">← 返回</button>
+            <h1 id="habit-name">加载中...</h1>
+            <p id="habit-description" class="subtitle"></p>
+        </header>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-value" id="consecutive-days">0</span>
+                <span class="stat-label">连续成功天数</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="start-date">-</span>
+                <span class="stat-label">开始日期</span>
+            </div>
+        </div>
+
+        <div class="calendar-controls">
+            <button class="btn-nav" onclick="changeMonth(-1)">◀</button>
+            <h2 id="current-month">2024年1月</h2>
+            <button class="btn-nav" onclick="changeMonth(1)">▶</button>
+        </div>
+
+        <div class="calendar-wrapper">
+            <div class="calendar-weekdays">
+                <div>一</div>
+                <div>二</div>
+                <div>三</div>
+                <div>四</div>
+                <div>五</div>
+                <div>六</div>
+                <div>日</div>
+            </div>
+            <div id="calendar-grid" class="calendar-grid">
+                <!-- 日历将通过 JavaScript 动态生成 -->
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-color success"></span>
+                <span>成功</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color fail"></span>
+                <span>失败</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color not-started"></span>
+                <span>未开始</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标记失败模态框 -->
+    <div id="fail-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="fail-modal-title">标记失败</h2>
+                <span class="close" onclick="hideFailModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="fail-form">
+                    <input type="hidden" id="fail-date">
+                    <input type="hidden" id="fail-record-id">
+                    <div class="form-group">
+                        <label for="fail-reason">失败原因 *</label>
+                        <textarea id="fail-reason" rows="4" placeholder="记录一下失败的原因，帮助你反思和改进..." required></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="hideFailModal()">取消</button>
+                        <button type="button" class="btn btn-danger" id="delete-record-btn" style="display: none;" onclick="deleteRecord()">删除记录</button>
+                        <button type="submit" class="btn btn-primary">保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const habitId = {{ habit_id }};
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth() + 1;
+        let habitData = null;
+
+        // 加载习惯信息
+        async function loadHabitInfo() {
+            try {
+                const response = await fetch(`/api/habits/${habitId}`);
+                habitData = await response.json();
+                
+                document.getElementById('habit-name').textContent = habitData.name;
+                document.getElementById('habit-description').textContent = habitData.description || '';
+                document.getElementById('consecutive-days').textContent = habitData.consecutive_days;
+                document.getElementById('start-date').textContent = habitData.start_date;
+            } catch (error) {
+                console.error('加载习惯信息失败:', error);
+                alert('加载失败，请返回重试');
+            }
+        }
+
+        // 加载日历
+        async function loadCalendar() {
+            try {
+                const response = await fetch(`/api/habits/${habitId}/calendar?year=${currentYear}&month=${currentMonth}`);
+                const data = await response.json();
+                
+                // 更新月份标题
+                document.getElementById('current-month').textContent = `${currentYear}年${currentMonth}月`;
+                
+                // 生成日历
+                const calendarGrid = document.getElementById('calendar-grid');
+                calendarGrid.innerHTML = '';
+                
+                // 计算第一天是星期几（0=周日，转换为1=周一）
+                const firstDay = new Date(currentYear, currentMonth - 1, 1);
+                let firstDayOfWeek = firstDay.getDay();
+                firstDayOfWeek = firstDayOfWeek === 0 ? 7 : firstDayOfWeek; // 转换周日为7
+                
+                // 添加空白格子
+                for (let i = 1; i < firstDayOfWeek; i++) {
+                    const emptyCell = document.createElement('div');
+                    emptyCell.className = 'calendar-day empty';
+                    calendarGrid.appendChild(emptyCell);
+                }
+                
+                // 添加日期格子
+                data.days.forEach(day => {
+                    const dayCell = document.createElement('div');
+                    dayCell.className = `calendar-day ${day.status}`;
+                    dayCell.textContent = day.day;
+                    
+                    // 只有在开始日期之后且不是未来日期时才能点击
+                    if (day.status !== 'not-started' && day.status !== 'future') {
+                        dayCell.style.cursor = 'pointer';
+                        dayCell.onclick = () => handleDayClick(day);
+                    }
+                    
+                    calendarGrid.appendChild(dayCell);
+                });
+                
+            } catch (error) {
+                console.error('加载日历失败:', error);
+                alert('加载日历失败，请刷新页面重试');
+            }
+        }
+
+        // 处理日期点击
+        function handleDayClick(day) {
+            document.getElementById('fail-date').value = day.date;
+            document.getElementById('fail-modal-title').textContent = `${day.date}`;
+            
+            if (day.status === 'fail') {
+                // 已有失败记录，显示编辑模式
+                document.getElementById('fail-reason').value = day.reason || '';
+                document.getElementById('fail-record-id').value = day.record_id;
+                document.getElementById('delete-record-btn').style.display = 'inline-block';
+            } else {
+                // 标记新的失败
+                document.getElementById('fail-reason').value = '';
+                document.getElementById('fail-record-id').value = '';
+                document.getElementById('delete-record-btn').style.display = 'none';
+            }
+            
+            document.getElementById('fail-modal').style.display = 'block';
+        }
+
+        // 隐藏失败模态框
+        function hideFailModal() {
+            document.getElementById('fail-modal').style.display = 'none';
+            document.getElementById('fail-form').reset();
+        }
+
+        // 提交失败记录
+        document.getElementById('fail-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const date = document.getElementById('fail-date').value;
+            const reason = document.getElementById('fail-reason').value;
+            
+            try {
+                const response = await fetch(`/api/habits/${habitId}/records`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ date, reason })
+                });
+                
+                if (response.ok) {
+                    hideFailModal();
+                    loadCalendar();
+                    loadHabitInfo(); // 刷新统计数据
+                } else {
+                    const error = await response.json();
+                    alert(error.error || '保存失败');
+                }
+            } catch (error) {
+                console.error('保存失败记录失败:', error);
+                alert('保存失败，请重试');
+            }
+        });
+
+        // 删除记录
+        async function deleteRecord() {
+            if (!confirm('确定要删除这条失败记录吗？该天将恢复为成功状态。')) {
+                return;
+            }
+            
+            const recordId = document.getElementById('fail-record-id').value;
+            
+            try {
+                const response = await fetch(`/api/records/${recordId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    hideFailModal();
+                    loadCalendar();
+                    loadHabitInfo();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (error) {
+                console.error('删除记录失败:', error);
+                alert('删除失败，请重试');
+            }
+        }
+
+        // 切换月份
+        function changeMonth(delta) {
+            currentMonth += delta;
+            
+            if (currentMonth > 12) {
+                currentMonth = 1;
+                currentYear++;
+            } else if (currentMonth < 1) {
+                currentMonth = 12;
+                currentYear--;
+            }
+            
+            loadCalendar();
+        }
+
+        // 页面加载时初始化
+        loadHabitInfo();
+        loadCalendar();
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('fail-modal');
+            if (event.target === modal) {
+                hideFailModal();
+            }
+        }
+    </script>
+</body>
+</html>

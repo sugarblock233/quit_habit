@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>习惯戒除 - 主页</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 习惯戒除</h1>
+            <p class="subtitle">记录你的每一次进步</p>
+        </header>
+
+        <div class="create-habit-section">
+            <button class="btn btn-primary" onclick="showCreateModal()">+ 创建新习惯</button>
+        </div>
+
+        <div id="habits-list" class="habits-list">
+            <!-- 习惯列表将通过 JavaScript 动态加载 -->
+        </div>
+
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <p>📝 还没有任何习惯</p>
+            <p class="hint">点击上方按钮创建你的第一个戒除目标</p>
+        </div>
+    </div>
+
+    <!-- 创建习惯模态框 -->
+    <div id="create-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>创建新习惯</h2>
+                <span class="close" onclick="hideCreateModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="create-habit-form">
+                    <div class="form-group">
+                        <label for="habit-name">习惯名称 *</label>
+                        <input type="text" id="habit-name" placeholder="例如：戒烟、戒酒、戒糖" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="habit-description">描述（可选）</label>
+                        <textarea id="habit-description" rows="3" placeholder="为什么要戒除这个习惯？"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="habit-start-date">开始日期</label>
+                        <input type="date" id="habit-start-date" value="">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="hideCreateModal()">取消</button>
+                        <button type="submit" class="btn btn-primary">创建</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 设置默认日期为今天
+        document.getElementById('habit-start-date').valueAsDate = new Date();
+
+        // 加载习惯列表
+        async function loadHabits() {
+            try {
+                const response = await fetch('/api/habits');
+                const habits = await response.json();
+                
+                const habitsList = document.getElementById('habits-list');
+                const emptyState = document.getElementById('empty-state');
+                
+                if (habits.length === 0) {
+                    habitsList.style.display = 'none';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                
+                habitsList.style.display = 'block';
+                emptyState.style.display = 'none';
+                
+                habitsList.innerHTML = habits.map(habit => `
+                    <div class="habit-card" onclick="location.href='/habit/${habit.id}'">
+                        <div class="habit-header">
+                            <h3>${habit.name}</h3>
+                            <button class="btn-delete" onclick="event.stopPropagation(); deleteHabit(${habit.id})" title="删除">🗑️</button>
+                        </div>
+                        ${habit.description ? `<p class="habit-description">${habit.description}</p>` : ''}
+                        <div class="habit-stats">
+                            <div class="stat">
+                                <span class="stat-label">连续成功</span>
+                                <span class="stat-value">${habit.consecutive_days} 天</span>
+                            </div>
+                            ${habit.last_fail_date ? `
+                                <div class="stat">
+                                    <span class="stat-label">最近失败</span>
+                                    <span class="stat-value">${habit.last_fail_date}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="habit-info">
+                            <small>开始于 ${habit.start_date}</small>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载习惯失败:', error);
+                alert('加载习惯列表失败，请刷新页面重试');
+            }
+        }
+
+        // 显示创建模态框
+        function showCreateModal() {
+            document.getElementById('create-modal').style.display = 'block';
+        }
+
+        // 隐藏创建模态框
+        function hideCreateModal() {
+            document.getElementById('create-modal').style.display = 'none';
+            document.getElementById('create-habit-form').reset();
+            document.getElementById('habit-start-date').valueAsDate = new Date();
+        }
+
+        // 提交创建表单
+        document.getElementById('create-habit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('habit-name').value;
+            const description = document.getElementById('habit-description').value;
+            const startDate = document.getElementById('habit-start-date').value;
+            
+            try {
+                const response = await fetch('/api/habits', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        start_date: startDate
+                    })
+                });
+                
+                if (response.ok) {
+                    hideCreateModal();
+                    loadHabits();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || '创建失败');
+                }
+            } catch (error) {
+                console.error('创建习惯失败:', error);
+                alert('创建失败，请重试');
+            }
+        });
+
+        // 删除习惯
+        async function deleteHabit(habitId) {
+            if (!confirm('确定要删除这个习惯吗？所有相关记录也会被删除。')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/habits/${habitId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    loadHabits();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (error) {
+                console.error('删除习惯失败:', error);
+                alert('删除失败，请重试');
+            }
+        }
+
+        // 页面加载时加载习惯列表
+        loadHabits();
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('create-modal');
+            if (event.target === modal) {
+                hideCreateModal();
+            }
+        }
+    </script>
+</body>
+</html>
