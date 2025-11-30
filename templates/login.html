@@ -6,103 +6,152 @@
     <title>登录 - 习惯戒除</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
+        /* Apple Login Style */
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        
         .login-container {
-            max-width: 400px;
-            margin: 100px auto;
+            max-width: 420px;
+            width: 100%;
+            padding: 20px;
         }
         
         .login-card {
-            background: white;
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
         .login-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 36px;
         }
         
         .login-header h1 {
-            font-size: 2em;
-            color: #333;
-            margin-bottom: 10px;
+            font-size: 2.2em;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--apple-blue), var(--apple-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
         .login-header p {
-            color: #666;
+            color: var(--text-secondary);
+            font-size: 1.05em;
+            font-weight: 500;
         }
         
         .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
+            background: rgba(255, 59, 48, 0.1);
+            color: var(--apple-red);
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 24px;
             text-align: center;
+            font-weight: 600;
+            border: 1px solid rgba(255, 59, 48, 0.2);
         }
         
         .success-message {
-            background: #efe;
-            color: #3c3;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
+            background: rgba(52, 199, 89, 0.1);
+            color: var(--apple-green);
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 24px;
             text-align: center;
+            font-weight: 600;
+            border: 1px solid rgba(52, 199, 89, 0.2);
         }
         
         .form-group-login {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
         
         .form-group-login label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #333;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95em;
         }
         
         .form-group-login input[type="password"] {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 16px;
-            transition: border-color 0.3s;
+            padding: 16px;
+            border: 1.5px solid rgba(0, 0, 0, 0.1);
+            border-radius: 14px;
+            font-size: 17px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            transition: all 0.2s;
+            background: var(--bg-secondary);
         }
         
         .form-group-login input[type="password"]:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--apple-blue);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
         }
         
         .login-button {
             width: 100%;
-            padding: 14px;
-            background: #667eea;
+            padding: 16px;
+            background: var(--apple-blue);
             color: white;
             border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 500;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 600;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
         }
         
         .login-button:hover {
-            background: #5568d3;
+            background: #0051D5;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+        }
+        
+        .login-button:active {
+            transform: translateY(0);
         }
         
         .login-button:disabled {
-            background: #ccc;
+            background: var(--apple-gray);
             cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
         
         .login-footer {
             text-align: center;
-            margin-top: 20px;
-            color: #666;
+            margin-top: 24px;
+            color: var(--text-secondary);
             font-size: 0.9em;
+            font-weight: 500;
+        }
+        
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 36px 28px;
+                border-radius: 20px;
+            }
+            
+            .login-header h1 {
+                font-size: 1.8em;
+            }
         }
     </style>
 </head>
