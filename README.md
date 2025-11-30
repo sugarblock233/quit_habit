@@ -193,12 +193,39 @@ sudo systemctl start quit_habit
 sudo systemctl enable quit_habit
 ```
 
-## 🔒 安全建议
+## 🔒 安全配置
+
+### 快速启用密码保护
+
+如果要将应用部署到公网，强烈建议启用密码保护：
+
+```bash
+# 运行安全配置向导
+./setup_security.sh
+
+# 或手动设置密码
+echo "APP_PASSWORD=your-strong-password" >> .env
+```
+
+启用密码后，访问应用需要先登录。
+
+### 完整安全方案
+
+详细的安全配置请查看 [SECURITY.md](SECURITY.md)，包括：
+- 基础密码保护
+- HTTPS 配置
+- IP 白名单
+- 防暴力破解
+- VPN 访问
+- 最佳安全实践
+
+### 安全建议
 
 1. **修改 SECRET_KEY**：在 `.env` 文件中设置强密码
-2. **使用 HTTPS**：配置 SSL 证书（Let's Encrypt）
-3. **限制访问**：在 Nginx 配置中添加 IP 白名单（如果需要）
-4. **定期备份**：备份 `quit_habit.db` 数据库文件
+2. **启用密码保护**：设置 `APP_PASSWORD`
+3. **使用 HTTPS**：配置 SSL 证书（Let's Encrypt）
+4. **配置防火墙**：只开放必要端口
+5. **定期备份**：备份 `quit_habit.db` 数据库文件
 
 ## 🛠️ 故障排查
 

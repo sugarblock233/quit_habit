@@ -1,7 +1,10 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from functools import wraps
 from datetime import datetime, date, timedelta
+from werkzeug.security import check_password_hash, generate_password_hash
 from config import Config
 from models import db, Habit, HabitRecord
+import os
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -14,15 +17,76 @@ with app.app_context():
     db.create_all()
 
 
+# ==================== 安全装饰器 ====================
+
+def login_required(f):
+    """登录验证装饰器"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 如果没有设置密码，不需要登录
+        if not app.config.get('APP_PASSWORD'):
+            return f(*args, **kwargs)
+        
+        # 检查是否已登录
+        if not session.get('logged_in'):
+            if request.path.startswith('/api/'):
+                return jsonify({'error': '未登录', 'redirect': '/login'}), 401
+            return redirect(url_for('login'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# ==================== 认证路由 ====================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """登录页面"""
+    # 如果没有设置密码，直接跳转到首页
+    if not app.config.get('APP_PASSWORD'):
+        return redirect(url_for('index'))
+    
+    # 如果已经登录，直接跳转到首页
+    if session.get('logged_in'):
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        data = request.get_json() if request.is_json else request.form
+        password = data.get('password')
+        
+        if password == app.config.get('APP_PASSWORD'):
+            session['logged_in'] = True
+            session.permanent = True  # 使用持久化 session
+            
+            if request.is_json:
+                return jsonify({'success': True, 'message': '登录成功'})
+            return redirect(url_for('index'))
+        else:
+            if request.is_json:
+                return jsonify({'success': False, 'error': '密码错误'}), 401
+            return render_template('login.html', error='密码错误')
+    
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    """登出"""
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+
 # ==================== Web 页面路由 ====================
 
 @app.route('/')
+@login_required
 def index():
     """主页 - 显示所有习惯列表"""
     return render_template('index.html')
 
 
 @app.route('/habit/<int:habit_id>')
+@login_required
 def habit_detail(habit_id):
     """习惯详情页 - 显示日历视图"""
     return render_template('habit_detail.html', habit_id=habit_id)
@@ -31,6 +95,7 @@ def habit_detail(habit_id):
 # ==================== API 路由 ====================
 
 @app.route('/api/habits', methods=['GET'])
+@login_required
 def get_habits():
     """获取所有习惯"""
     habits = Habit.query.order_by(Habit.created_at.desc()).all()
@@ -46,6 +111,7 @@ def get_habits():
 
 
 @app.route('/api/habits', methods=['POST'])
+@login_required
 def create_habit():
     """创建新习惯"""
     data = request.get_json()
@@ -76,6 +142,7 @@ def create_habit():
 
 
 @app.route('/api/habits/<int:habit_id>', methods=['GET'])
+@login_required
 def get_habit(habit_id):
     """获取单个习惯详情"""
     habit = Habit.query.get_or_404(habit_id)
@@ -88,6 +155,7 @@ def get_habit(habit_id):
 
 
 @app.route('/api/habits/<int:habit_id>', methods=['DELETE'])
+@login_required
 def delete_habit(habit_id):
     """删除习惯"""
     habit = Habit.query.get_or_404(habit_id)
@@ -98,6 +166,7 @@ def delete_habit(habit_id):
 
 
 @app.route('/api/habits/<int:habit_id>/calendar', methods=['GET'])
+@login_required
 def get_habit_calendar(habit_id):
     """获取习惯的日历数据
     
@@ -166,6 +235,7 @@ def get_habit_calendar(habit_id):
 
 
 @app.route('/api/habits/<int:habit_id>/records', methods=['POST'])
+@login_required
 def mark_fail(habit_id):
     """标记某天失败"""
     habit = Habit.query.get_or_404(habit_id)
@@ -216,6 +286,7 @@ def mark_fail(habit_id):
 
 
 @app.route('/api/records/<int:record_id>', methods=['PUT'])
+@login_required
 def update_record(record_id):
     """更新失败记录"""
     record = HabitRecord.query.get_or_404(record_id)
@@ -231,6 +302,7 @@ def update_record(record_id):
 
 
 @app.route('/api/records/<int:record_id>', methods=['DELETE'])
+@login_required
 def delete_record(record_id):
     """删除失败记录（将该天改回成功）"""
     record = HabitRecord.query.get_or_404(record_id)
